@@ -1,0 +1,89 @@
+server:
+  port: 8080
+  admin_ids: [1, 6]
+
+database:
+  host: localhost
+  port: 3307
+  user: root
+  password: 123456
+  dbname: feedsystem
+
+redis:
+  host: localhost
+  port: 6379
+  password: 123456
+  db: 0
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: admin
+  password: password123
+  
+observability:
+  pprof:
+    enabled: true
+    api_addr: localhost:6060
+    worker_addr: localhost:6061
+
+# ============================================================
+# AI 配置 — 硅基流动 (SiliconFlow) https://siliconflow.cn
+# 注册后在 https://cloud.siliconflow.cn/account/ak 获取 API Key
+# ============================================================
+ai:
+  api_key: "sk-xqamzzmqgspxmcevykkovevpshzcjgrxbefucngxztlmyovc"                                          # <--- 在这里填你的 API Key
+  base_url: "https://api.siliconflow.cn/v1"
+
+  # 视频 AI 摘要（分析 ASR 转录文本，生成视频描述）
+  model: "deepseek-ai/DeepSeek-V3"
+
+  # 语音转文字（音频 → 文本，供后续文本审核用）
+  asr_model: "TeleAI/TeleSpeechASR"
+
+# 媒体处理配置
+media:
+  upload_dir: "./.run/uploads"
+  ffmpeg_path: "ffmpeg"
+  ytdlp_path: "yt-dlp"
+  max_file_size_mb: 2048
+
+# ============================================================
+# 内容审核配置 — 需要以下模型（均在硅基流动可用）：
+#   1. 文本模型  → 审标题、描述、ASR转录文本
+#   2. 视觉模型  → 审封面图、视频抽帧（多模态）
+# ============================================================
+review:
+  enabled: true
+
+  # 文本审核模型（审标题 + 描述 + 音频ASR文本）
+  text_model: "deepseek-ai/DeepSeek-V3"
+
+  # 视觉审核模型（审封面图 + 视频抽帧，多模态）
+  vision_model: "Qwen/Qwen3-VL-32B-Instruct"
+
+  sample_frames: 5
+  frame_review_mode: "auto"
+  confidence_threshold: 0.7
+  manual_review_threshold: 0.5
+  max_retries: 3
+  max_video_size_mb: 500
+  max_cover_size_mb: 20
+  max_video_duration_sec: 1800
+  min_video_duration_sec: 15
+  enable_audio_review: true
+  enable_ocr_review: true
+  max_concurrent_frames: 3
+  max_concurrent_videos: 10
+  # Agent ReAct 审核
+  agent_enabled: true
+  agent_max_rounds: 5
+  agent_timeout_sec: 120
+
+# MinIO 对象存储
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "media"
+  use_ssl: false
