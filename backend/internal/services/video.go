@@ -78,6 +78,13 @@ func (vs *VideoService) Publish(ctx context.Context, video *models.Video) error 
 		video.ReviewStatus = "pending"
 	}
 
+	// category 优先用调用方传入值；为空则回退到首个 tag，保证同类分组可用
+	if video.Category == "" {
+		if tags := models.ExtractTags(video.Title + " " + video.Description); len(tags) > 0 {
+			video.Category = tags[0]
+		}
+	}
+
 	// 事务保证视频写入库和消息写入本地消息表的一致性
 	err := vs.repo.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(video).Error; err != nil {

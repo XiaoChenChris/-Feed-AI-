@@ -131,6 +131,8 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rdb *redis.Client, rmq *ra
 	// ─── Feed ─────────────────────────────────────────────────
 	feedRepo := repositories.NewFeedRepository(db)
 	feedService := services.NewFeedService(feedRepo, likeRepo, cache)
+	// 注入统一 feed 引擎（多路召回 + 合并去重 + 同类上限 + 精排 + 曝光去重）
+	feedService.SetFeedEngine(services.NewFeedEngine(feedRepo, likeRepo, cache))
 
 	// ─── Create Handlers ──────────────────────────────────────
 	accountHandler := controllers.NewAccountHandler(accountService, videoRepo, socialRepo, cfg.Server.AdminIDs)

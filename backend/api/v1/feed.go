@@ -18,6 +18,7 @@ func registerFeedRoutes(r *gin.Engine, accountRepo *repositories.AccountReposito
 		feedGroup.POST("/listLikesCount", h.ListLikesCount)
 		feedGroup.POST("/listByPopularity", h.ListByPopularity)
 		feedGroup.POST("/listByTag", h.ListByTag)
+		feedGroup.POST("/generate", h.GenerateFeed)
 	}
 	protected := feedGroup.Group("")
 	protected.Use(jwt.JWTAuth(accountRepo, cache))

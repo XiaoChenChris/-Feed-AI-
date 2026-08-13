@@ -19,6 +19,36 @@ func NewFeedHandler(svc *services.FeedService) *FeedHandler {
 	return &FeedHandler{service: svc}
 }
 
+// GenerateFeed 调用统一引擎生成 feed（多路召回/合并去重/粗筛/同类上限/精排）。
+func (f *FeedHandler) GenerateFeed(c *gin.Context) {
+	var req models.GenerateFeedRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(apierror.ClassifyHTTPStatus(err), gin.H{"error": err.Error()})
+		return
+	}
+	if req.Limit <= 0 || req.Limit > 50 {
+		req.Limit = 20
+	}
+	if req.Cursor < 0 {
+		req.Cursor = 0
+	}
+	// 匿名用户 accountID=0，引擎将跳过曝光去重
+	viewerAccountID, err := jwt.GetAccountID(c)
+	if err != nil {
+		viewerAccountID = 0
+	}
+	items, nextCursor, hasMore, err := f.service.GenerateFeed(c.Request.Context(), viewerAccountID, req.Limit, req.Cursor)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, models.GenerateFeedResponse{
+		VideoList:  nonNilFeedVideoItems(items),
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	})
+}
+
 func (f *FeedHandler) ListLatest(c *gin.Context) {
 	var req struct {
 		Limit      int   `json:"limit"`

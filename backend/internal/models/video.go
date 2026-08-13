@@ -18,6 +18,7 @@ type Video struct {
 	LikesCount   int64     `gorm:"column:likes_count;not null;default:0;index:idx_videos_likes_count_id,priority:1,sort:desc" json:"likes_count"`
 	Popularity   int64     `gorm:"column:popularity;not null;default:0;index:idx_videos_popularity_time_id,priority:1,sort:desc" json:"popularity"`
 	Version      uint      `gorm:"column:version;not null;default:0" json:"-"`
+	Category     string    `gorm:"column:category;type:varchar(50);not null;default:'';index" json:"category"`
 	ReviewStatus     string  `gorm:"type:varchar(20);default:pending;index" json:"review_status"`
 	ReviewReason     string  `gorm:"type:text" json:"review_reason,omitempty"`
 	ReviewConfidence float64 `gorm:"type:decimal(5,4);default:0" json:"review_confidence,omitempty"`
@@ -39,6 +40,7 @@ type PublishVideoRequest struct {
 	Description string `json:"description"`
 	PlayURL     string `json:"play_url"`
 	CoverURL    string `json:"cover_url"`
+	Category    string `json:"category"`
 }
 
 type DeleteVideoRequest struct {

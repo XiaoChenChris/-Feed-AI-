@@ -102,3 +102,36 @@ func (r *LikeRepository) ListLikedVideos(ctx context.Context, accountID uint) ([
 	}
 	return videos, nil
 }
+
+// GetLikedVideoTags returns the distinct tag names of the account's recently
+// liked videos (most recent first), capped at limit entries.
+func (r *LikeRepository) GetLikedVideoTags(ctx context.Context, accountID uint, limit int) ([]string, error) {
+	if accountID == 0 || limit <= 0 {
+		return nil, nil
+	}
+	var names []string
+	err := r.DB.WithContext(ctx).
+		Table("likes").
+		Select("tags.name").
+		Joins("JOIN video_tags ON video_tags.video_id = likes.video_id").
+		Joins("JOIN tags ON tags.id = video_tags.tag_id").
+		Where("likes.account_id = ?", accountID).
+		Order("likes.created_at DESC").
+		Limit(limit * 3).
+		Pluck("tags.name", &names).Error
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	for _, n := range names {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}

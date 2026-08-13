@@ -79,3 +79,16 @@ type ListByPopularityResponse struct {
 	NextLatestBefore     *time.Time `json:"next_latest_before,omitempty"`
 	NextLatestIDBefore   *uint      `json:"next_latest_id_before,omitempty"`
 }
+
+// GenerateFeedRequest is the input for the unified feed engine (cursor-based).
+type GenerateFeedRequest struct {
+	Limit  int `json:"limit"`
+	Cursor int `json:"cursor"`
+}
+
+// GenerateFeedResponse is the unified feed engine output.
+type GenerateFeedResponse struct {
+	VideoList  []FeedVideoItem `json:"video_list"`
+	NextCursor int             `json:"next_cursor"`
+	HasMore    bool            `json:"has_more"`
+}

@@ -25,6 +25,28 @@ type FeedService struct {
 	localcache   *gocache.Cache
 	cacheTTL     time.Duration
 	requestGroup singleflight.Group
+	feedEngine   *FeedEngine
+}
+
+// SetFeedEngine injects the unified multi-path recall engine.
+func (f *FeedService) SetFeedEngine(e *FeedEngine) {
+	f.feedEngine = e
+}
+
+// GenerateFeed runs the unified feed engine and returns rendered feed items.
+func (f *FeedService) GenerateFeed(ctx context.Context, accountID uint, limit, cursor int) ([]models.FeedVideoItem, int, bool, error) {
+	if f.feedEngine == nil {
+		return nil, 0, false, fmt.Errorf("feed engine not initialized")
+	}
+	videos, nextCursor, hasMore, err := f.feedEngine.Generate(ctx, accountID, limit, cursor)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	items, err := f.buildFeedVideos(ctx, videos, accountID)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	return items, nextCursor, hasMore, nil
 }
 
 type CachedFeedData struct {
