@@ -17,6 +17,7 @@ type Video struct {
 	CreateTime   time.Time `gorm:"autoCreateTime;index:idx_videos_create_time,sort:desc;index:idx_videos_popularity_time_id,priority:2,sort:desc" json:"create_time"`
 	LikesCount   int64     `gorm:"column:likes_count;not null;default:0;index:idx_videos_likes_count_id,priority:1,sort:desc" json:"likes_count"`
 	Popularity   int64     `gorm:"column:popularity;not null;default:0;index:idx_videos_popularity_time_id,priority:1,sort:desc" json:"popularity"`
+	Version      uint      `gorm:"column:version;not null;default:0" json:"-"`
 	ReviewStatus     string  `gorm:"type:varchar(20);default:pending;index" json:"review_status"`
 	ReviewReason     string  `gorm:"type:text" json:"review_reason,omitempty"`
 	ReviewConfidence float64 `gorm:"type:decimal(5,4);default:0" json:"review_confidence,omitempty"`

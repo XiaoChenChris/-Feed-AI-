@@ -9,9 +9,6 @@ import (
 	"feedsystem_ai_go/internal/models"
 	rabbitmq "feedsystem_ai_go/pkg/mq"
 	"feedsystem_ai_go/internal/repositories"
-
-	"github.com/go-sql-driver/mysql"
-	"gorm.io/gorm"
 )
 
 type LikeService struct {
@@ -24,11 +21,6 @@ type LikeService struct {
 
 func NewLikeService(repo *repositories.LikeRepository, videoRepo *repositories.VideoRepository, cache *rediscache.Client, likeMQ *rabbitmq.LikeMQ, popularityMQ *rabbitmq.PopularityMQ) *LikeService {
 	return &LikeService{repo: repo, VideoRepo: videoRepo, cache: cache, likeMQ: likeMQ, popularityMQ: popularityMQ}
-}
-
-func isDupKey(err error) bool {
-	var me *mysql.MySQLError
-	return errors.As(err, &me) && me.Number == 1062
 }
 
 func (s *LikeService) Like(ctx context.Context, like *models.Like) error {
@@ -76,27 +68,18 @@ func (s *LikeService) Like(ctx context.Context, like *models.Like) error {
 
 	// Fallback: direct MySQL write when like MQ publish fails.
 	if !mysqlEnqueued {
-		err := s.repo.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Select("id").First(&models.Video{}, like.VideoID).Error; err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.New("video not found")
-				}
-				return err
-			}
-			if err := tx.Create(like).Error; err != nil {
-				if isDupKey(err) {
-					return errors.New("user has liked this video")
-				}
-				return err
-			}
-			if err := tx.Model(&models.Video{}).Where("id = ?", like.VideoID).
-				UpdateColumn("likes_count", gorm.Expr("likes_count + 1")).Error; err != nil {
-				return err
-			}
-			return tx.Model(&models.Video{}).Where("id = ?", like.VideoID).
-				UpdateColumn("popularity", gorm.Expr("popularity + 1")).Error
-		})
+		created, err := s.repo.LikeIgnoreDuplicate(ctx, like)
 		if err != nil {
+			return err
+		}
+		if !created {
+			return errors.New("user has liked this video")
+		}
+		// 乐观锁更新计数（version 字段 CAS + 重试）
+		if err := s.VideoRepo.ChangeLikesCount(ctx, like.VideoID, 1); err != nil {
+			return err
+		}
+		if err := s.VideoRepo.ChangePopularity(ctx, like.VideoID, 1); err != nil {
 			return err
 		}
 	}
@@ -152,23 +135,18 @@ func (s *LikeService) Unlike(ctx context.Context, like *models.Like) error {
 
 	// Fallback: direct MySQL write when like MQ publish fails.
 	if !mysqlEnqueued {
-		err := s.repo.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			del := tx.Where("video_id = ? AND account_id = ?", like.VideoID, like.AccountID).Delete(&models.Like{})
-			if del.Error != nil {
-				return del.Error
-			}
-			if del.RowsAffected == 0 {
-				return errors.New("user has not liked this video")
-			}
-
-			if err := tx.Model(&models.Video{}).Where("id = ?", like.VideoID).
-				UpdateColumn("likes_count", gorm.Expr("GREATEST(likes_count - 1, 0)")).Error; err != nil {
-				return err
-			}
-			return tx.Model(&models.Video{}).Where("id = ?", like.VideoID).
-				UpdateColumn("popularity", gorm.Expr("GREATEST(popularity - 1, 0)")).Error
-		})
+		deleted, err := s.repo.DeleteByVideoAndAccount(ctx, like.VideoID, like.AccountID)
 		if err != nil {
+			return err
+		}
+		if !deleted {
+			return errors.New("user has not liked this video")
+		}
+		// 乐观锁更新计数（version 字段 CAS + 重试）
+		if err := s.VideoRepo.ChangeLikesCount(ctx, like.VideoID, -1); err != nil {
+			return err
+		}
+		if err := s.VideoRepo.ChangePopularity(ctx, like.VideoID, -1); err != nil {
 			return err
 		}
 	}
